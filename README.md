@@ -4,7 +4,6 @@
   <p><b>Diagnóstico Profundo de Hardware, Telemetria em Tempo Real, Detector de Gargalo, Otimização e Benchmark Nativo para Linux / GNOME</b></p>
   <p>
     Construído em <b>Rust</b> com <b>GTK 4</b>, <b>Libadwaita</b> e <b>Cairo</b> seguindo rigorosamente a <a href="https://developer.gnome.org/hig/">GNOME Human Interface Guidelines (HIG)</a>.<br/>
-    Inspirado no projeto <a href="https://github.com/GustavoReset/ResetExplode">ResetExplode</a>.
   </p>
 </div>
 
