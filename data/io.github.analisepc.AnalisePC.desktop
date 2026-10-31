@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Analise PC
+Comment=Monitoramento de hardware, diagnóstico S.M.A.R.T. e otimização para Linux
+Exec=analisepc
+Icon=io.github.analisepc.AnalisePC
+Terminal=false
+Type=Application
+Categories=System;Monitor;HardwareSettings;GTK;GNOME;
+Keywords=hardware;cpu;gpu;ram;nvme;smart;benchmark;sensors;diagnostics;
+StartupNotify=true
+StartupWMClass=io.github.analisepc.AnalisePC

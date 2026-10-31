@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.analisepc.AnalisePC</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Analise PC</name>
+  <summary>Monitoramento de hardware, diagnóstico S.M.A.R.T., gargalo e benchmarks para Linux</summary>
+  <description>
+    <p>
+      Analise PC é uma suíte nativa de inspeção de hardware, telemetria térmica, auditoria S.M.A.R.T.,
+      detector de gargalo (CPU vs GPU vs VRAM), benchmarks e otimizações de sistema para Linux,
+      desenvolvida em Rust com GTK 4, Libadwaita e Cairo seguindo as diretrizes GNOME HIG.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.analisepc.AnalisePC.desktop</launchable>
+  <developer_name>Equipe Analise PC</developer_name>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-10-31" />
+  </releases>
+</component>

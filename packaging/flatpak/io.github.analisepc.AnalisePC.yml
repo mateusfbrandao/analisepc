@@ -1,0 +1,46 @@
+app-id: io.github.analisepc.AnalisePC
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: analisepc
+
+finish-args:
+  # Renderização Wayland / X11 e aceleração por GPU
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=all
+  # Acesso de rede para teste de latência ICMP Ping e monitoramento de interfaces
+  - --share=network
+  # Leitura de telemetria de sensores, DMI/SMBIOS, CPU, RAM e PCIe/USB
+  - --filesystem=/sys:ro
+  - --filesystem=/proc:ro
+  # Comunicação D-Bus com power-profiles-daemon / UPower (opcional)
+  - --system-talk-name=net.hadess.PowerProfiles
+  - --system-talk-name=org.freedesktop.UPower
+  # Permite executar utilitários de diagnóstico do host (smartctl, lspci, lsusb) quando necessário
+  - --talk-name=org.freedesktop.Flatpak
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/analisepc/cargo
+
+modules:
+  - name: analisepc
+    buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
+    build-commands:
+      - cargo build --release --locked
+      - install -Dm755 target/release/analisepc /app/bin/analisepc
+      - install -Dm644 data/io.github.analisepc.AnalisePC.desktop /app/share/applications/io.github.analisepc.AnalisePC.desktop
+      - install -Dm644 data/io.github.analisepc.AnalisePC.metainfo.xml /app/share/metainfo/io.github.analisepc.AnalisePC.metainfo.xml
+      - mkdir -p /app/share/icons/hicolor
+      - cp -r assets/icons/hicolor/* /app/share/icons/hicolor/
+    sources:
+      - type: dir
+        path: ../..

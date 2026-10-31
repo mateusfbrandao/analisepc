@@ -1,0 +1,35 @@
+[package]
+name = "analisepc"
+version = "0.1.0"
+edition = "2024"
+description = "Monitoramento em tempo real, diagnóstico S.M.A.R.T., telemetria térmica e otimização de hardware para Linux (GTK 4 / Libadwaita)"
+authors = ["Mateus Brandão"]
+license = "GPL-3.0-or-later"
+homepage = "https://github.com/mateusfbrandao/analisepc"
+repository = "https://github.com/mateusfbrandao/analisepc"
+
+[dependencies]
+sysinfo = "0.39"
+rayon = "1.10"
+libadwaita = { version = "0.9", features = ["v1_6"] }
+async-channel = "2.3"
+
+[package.metadata.deb]
+maintainer = "Mateus Brandão <https://github.com/mateusfbrandao>"
+copyright = "2026, Mateus Brandão"
+depends = "$auto, libadwaita-1-0, libgtk-4-1, smartmontools, nvme-cli, pciutils, usbutils, iputils-ping"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/analisepc", "usr/bin/analisepc", "755"],
+    ["assets/io.github.analisepc.AnalisePC.desktop", "usr/share/applications/io.github.analisepc.AnalisePC.desktop", "644"],
+    ["assets/io.github.analisepc.AnalisePC.metainfo.xml", "usr/share/metainfo/io.github.analisepc.AnalisePC.metainfo.xml", "644"],
+    ["assets/icons/hicolor/scalable/apps/io.github.analisepc.AnalisePC.svg", "usr/share/icons/hicolor/scalable/apps/io.github.analisepc.AnalisePC.svg", "644"],
+    ["assets/icons/hicolor/symbolic/apps/io.github.analisepc.AnalisePC-symbolic.svg", "usr/share/icons/hicolor/symbolic/apps/io.github.analisepc.AnalisePC-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/analisepc-cpu-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/analisepc-cpu-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/analisepc-ram-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/analisepc-ram-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/analisepc-temp-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/analisepc-temp-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/drive-harddisk-solidstate-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/drive-harddisk-solidstate-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/application-x-firmware-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/application-x-firmware-symbolic.svg", "644"],
+    ["assets/icons/hicolor/scalable/actions/speedometer-symbolic.svg", "usr/share/icons/hicolor/scalable/actions/speedometer-symbolic.svg", "644"],
+]

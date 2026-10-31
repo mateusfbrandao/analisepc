@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.analisepc.AnalisePC</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Analise PC</name>
+  <summary>Monitoramento de hardware, diagnóstico S.M.A.R.T. e otimização para Linux</summary>
+  <description>
+    <p>
+      Analise PC é uma ferramenta nativa para GNOME construída com Rust, GTK 4 e Libadwaita seguindo a GNOME Human Interface Guidelines (HIG).
+    </p>
+    <ul>
+      <li>Monitoramento em tempo real de CPU, threads, memória RAM e tráfego de rede</li>
+      <li>Inspeção S.M.A.R.T. de unidades NVMe/SSD e partições</li>
+      <li>Telemetria de placas de vídeo (VRAM, clocks, barramento PCIe e APIs gráficas)</li>
+      <li>Diagnóstico automático de integridade do hardware e eventos do kernel</li>
+      <li>Gerenciamento de perfil de energia, limpeza de cache e benchmark multi-thread</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.analisepc.AnalisePC.desktop</launchable>
+  <developer id="io.github.analisepc">
+    <name>Equipe Analise PC</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <Branding>
+    <color type="primary" scheme_preference="light">#3584e4</color>
+    <color type="primary" scheme_preference="dark">#1c71d8</color>
+  </Branding>
+  <releases>
+    <release version="0.1.0" date="2026-10-30">
+      <description>
+        <p>Versão inicial com interface adaptativa Libadwaita seguindo a GNOME HIG.</p>
+      </description>
+    </release>
+  </releases>
+</component>

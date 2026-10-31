@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Analise PC
+GenericName=Diagnóstico e Monitoramento de Hardware
+Comment=Monitoramento em tempo real, diagnóstico S.M.A.R.T., detector de gargalo, benchmarks e otimizações para Linux
+Exec=analisepc
+Icon=io.github.analisepc.AnalisePC
+Terminal=false
+Type=Application
+Categories=System;Monitor;HardwareSettings;GTK;GNOME;
+Keywords=hardware;cpu;gpu;ram;nvme;smart;benchmark;temperatura;sensores;diagnostico;gargalo;
+StartupNotify=true
+StartupWMClass=io.github.analisepc.AnalisePC
