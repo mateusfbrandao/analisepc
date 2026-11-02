@@ -1,6 +1,6 @@
 APP_NAME := analisepc
 APP_ID := io.github.analisepc.AnalisePC
-VERSION := 0.1.0
+VERSION := 0.2.0
 ARCH := amd64
 
 PREFIX ?= /usr

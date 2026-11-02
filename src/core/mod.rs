@@ -12,4 +12,5 @@ pub mod optimizer;
 pub mod peripherals;
 pub mod diagnostics;
 pub mod gaming;
+pub mod gaming_boost;
 pub mod exporter;

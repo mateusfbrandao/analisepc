@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -12,10 +12,11 @@ use libadwaita::gtk::{
 };
 use libadwaita::prelude::*;
 use libadwaita::{
-    AboutDialog, ActionRow, Application, ApplicationWindow, Banner, Breakpoint,
+    AboutDialog, ActionRow, AlertDialog, Application, ApplicationWindow, Banner, Breakpoint,
     BreakpointCondition, BreakpointConditionLengthType, EntryRow, ExpanderRow, HeaderBar,
-    LengthUnit, NavigationPage, NavigationSplitView, PreferencesGroup, PreferencesPage, SpinRow,
-    StatusPage, SwitchRow, Toast, ToastOverlay, ToolbarView, ViewStack, WindowTitle,
+    LengthUnit, NavigationPage, NavigationSplitView, PreferencesGroup, PreferencesPage,
+    ResponseAppearance, SpinRow, StatusPage, SwitchRow, Toast, ToastOverlay, ToolbarView,
+    ViewStack, WindowTitle,
 };
 
 use crate::core::battery::BatteryCollector;
@@ -24,6 +25,9 @@ use crate::core::diagnostics::{DiagSeverity, DiagnosticsEngine};
 use crate::core::disk::DiskCollector;
 use crate::core::exporter::ReportExporter;
 use crate::core::gaming::GamingAnalyzer;
+use crate::core::gaming_boost::{
+    GamingBoost, GamingBoostStatus, SHADER_CONF_PATH, SPLIT_LOCK_CONF_PATH,
+};
 use crate::core::gpu::GpuCollector;
 use crate::core::memory::MemoryCollector;
 use crate::core::optimizer::Optimizer;
@@ -527,7 +531,7 @@ pub fn build_ui(app: &Application) {
                 "network" => ("Rede", "Tráfego em tempo real, interfaces e latência"),
                 "peripherals" => ("Periféricos", "Monitores DRM, áudio PipeWire e USB"),
                 "diagnostics" => ("Diagnóstico", "Integridade dos componentes e eventos do kernel"),
-                "gaming" => ("Jogos e Desempenho", "Equilíbrio CPU/GPU, estimativa de FPS, Steam e MangoHud"),
+                "gaming" => ("Jogos e Desempenho", "Gargalo, FPS, Steam, MangoHud e pacote de desempenho"),
                 "optimizer" => ("Otimizações", "Perfil de energia, manutenção e inicialização"),
                 "bench" => ("Benchmark", "Teste sintético Single-Core e Multi-Core"),
                 _ => ("Analise PC", ""),
@@ -3712,8 +3716,380 @@ fn build_diagnostics_page(toast_overlay: &ToastOverlay) -> GtkBox {
     outer_box
 }
 
+fn set_status_badge(label: &Label, text: &str, css_class: &str) {
+    label.set_text(text);
+    label.set_css_classes(&["badge-pill", css_class, "numeric"]);
+    label.set_valign(Align::Center);
+}
+
+fn package_subtitle(status: &GamingBoostStatus) -> String {
+    if !status.apt_available {
+        return "Disponível em Debian, Ubuntu e derivadas, na instalação .deb.".into();
+    }
+    let arch = if status.i386_enabled {
+        "i386 ativa"
+    } else {
+        "i386 ausente"
+    };
+    let missing = status.missing_package_names();
+    if missing.is_empty() {
+        format!("Arquitetura {arch}. GameMode, MangoHud, Gamescope, Mesa e Vulkan instalados.")
+    } else {
+        format!("Arquitetura {arch}. Ausentes: {}.", missing.join(", "))
+    }
+}
+
+fn split_lock_subtitle(status: &GamingBoostStatus) -> String {
+    let base = "Desligar a penalidade melhora jogos antigos e o Wine/Proton. Um processo com split lock pode atrasar os outros núcleos. Não altera o GRUB e não exige reiniciar.";
+    match (status.split_lock_mitigate, status.split_lock_persisted) {
+        (Some(runtime), Some(saved)) if runtime == saved => {
+            format!("{base} O valor atual está gravado em {SPLIT_LOCK_CONF_PATH}.")
+        }
+        (Some(_), Some(_)) => {
+            format!("{base} O arquivo {SPLIT_LOCK_CONF_PATH} difere do valor atual.")
+        }
+        _ => base.to_string(),
+    }
+}
+
+fn spawn_boost_action(
+    toast: ToastOverlay,
+    buttons: Vec<Button>,
+    spinner: Spinner,
+    work: impl FnOnce() -> Result<String, String> + Send + 'static,
+    done: impl FnOnce() + 'static,
+) {
+    for button in &buttons {
+        button.set_sensitive(false);
+    }
+    spinner.set_visible(true);
+    spinner.start();
+
+    let (sender, receiver) = async_channel::bounded(1);
+    std::thread::spawn(move || {
+        let _ = sender.send_blocking(work());
+    });
+
+    glib::spawn_future_local(async move {
+        if let Ok(result) = receiver.recv().await {
+            spinner.stop();
+            spinner.set_visible(false);
+            match result {
+                Ok(msg) => toast.add_toast(Toast::new(&msg)),
+                Err(err) => toast.add_toast(Toast::new(&err)),
+            }
+            done();
+        }
+    });
+}
+
+fn build_gaming_boost_group(toast_overlay: &ToastOverlay, mh_badge: &Label) -> PreferencesGroup {
+    let group = PreferencesGroup::new();
+    group.set_title("Desempenho para Jogos");
+
+    let pkg_row = ActionRow::new();
+    pkg_row.set_title("Pacote gamer");
+    let pkg_spinner = Spinner::new();
+    pkg_spinner.set_visible(false);
+    pkg_row.add_prefix(&pkg_spinner);
+    let pkg_badge = Label::new(Some("…"));
+    pkg_row.add_suffix(&pkg_badge);
+    let pkg_btn = Button::with_label("Instalar");
+    pkg_btn.set_valign(Align::Center);
+    pkg_btn.add_css_class("suggested-action");
+    pkg_btn.set_tooltip_text(Some(
+        "Habilita a arquitetura i386, atualiza o apt e instala GameMode, MangoHud, Gamescope, mesa-utils e vulkan-tools.",
+    ));
+    pkg_row.add_suffix(&pkg_btn);
+    group.add(&pkg_row);
+
+    let shader_row = ActionRow::new();
+    shader_row.set_title("Cache de shaders da Mesa");
+    shader_row.set_subtitle(&format!(
+        "Amplia o cache GLSL da Mesa (Intel e AMD) para 12 GB em {SHADER_CONF_PATH}. Não altera Proton, DXVK nem o cache da NVIDIA. Vale depois de um novo login."
+    ));
+    let shader_spinner = Spinner::new();
+    shader_spinner.set_visible(false);
+    shader_row.add_prefix(&shader_spinner);
+    let shader_badge = Label::new(Some("…"));
+    shader_row.add_suffix(&shader_badge);
+    let shader_btn = Button::with_label("Aplicar 12 GB");
+    shader_btn.set_valign(Align::Center);
+    shader_btn.add_css_class("row-action-button");
+    shader_row.add_suffix(&shader_btn);
+    group.add(&shader_row);
+
+    let split_row = ActionRow::new();
+    split_row.set_title("Split lock");
+    let split_spinner = Spinner::new();
+    split_spinner.set_visible(false);
+    split_row.add_prefix(&split_spinner);
+    let split_badge = Label::new(Some("…"));
+    split_row.add_suffix(&split_badge);
+    let split_box = GtkBox::new(Orientation::Horizontal, 6);
+    split_box.set_valign(Align::Center);
+    let split_toggle_btn = Button::with_label("Desligar");
+    split_toggle_btn.add_css_class("row-action-button");
+    split_toggle_btn.set_tooltip_text(Some(
+        "Altera kernel.split_lock_mitigate agora, sem editar o GRUB.",
+    ));
+    let split_persist_btn = Button::with_label("Persistir");
+    split_persist_btn.add_css_class("row-action-button");
+    split_persist_btn.set_tooltip_text(Some(
+        "Grava o valor atual para os próximos boots, sem editar o GRUB.",
+    ));
+    split_box.append(&split_toggle_btn);
+    split_box.append(&split_persist_btn);
+    split_row.add_suffix(&split_box);
+    group.add(&split_row);
+
+    let lact_row = ActionRow::new();
+    lact_row.set_title("LACT");
+    lact_row.set_subtitle(
+        "Controle de ventoinha, limite de energia e clocks da GPU AMD ou NVIDIA. A instalação baixa um .deb do GitHub sem verificação de assinatura e ativa o serviço lactd.",
+    );
+    let lact_spinner = Spinner::new();
+    lact_spinner.set_visible(false);
+    lact_row.add_prefix(&lact_spinner);
+    let lact_badge = Label::new(Some("…"));
+    lact_row.add_suffix(&lact_badge);
+    let lact_btn = Button::with_label("Instalar");
+    lact_btn.set_valign(Align::Center);
+    lact_btn.add_css_class("row-action-button");
+    lact_row.add_suffix(&lact_btn);
+    group.add(&lact_row);
+
+    let pkg_btn_click = pkg_btn.clone();
+    let shader_btn_click = shader_btn.clone();
+    let split_toggle_click = split_toggle_btn.clone();
+    let split_persist_click = split_persist_btn.clone();
+    let lact_btn_click = lact_btn.clone();
+    let listed_pkg = pkg_btn.clone();
+    let listed_shader = shader_btn.clone();
+    let listed_toggle = split_toggle_btn.clone();
+    let listed_persist = split_persist_btn.clone();
+    let listed_lact = lact_btn.clone();
+    let action_buttons: Rc<dyn Fn() -> Vec<Button>> = Rc::new(move || {
+        vec![
+            listed_pkg.clone(),
+            listed_shader.clone(),
+            listed_toggle.clone(),
+            listed_persist.clone(),
+            listed_lact.clone(),
+        ]
+    });
+
+    let lact_installed = Rc::new(Cell::new(false));
+    let lact_state = lact_installed.clone();
+    let mh_badge = mh_badge.clone();
+    let group_sync = group.clone();
+    let sync: Rc<dyn Fn()> = Rc::new(move || {
+        let status = GamingBoost::read();
+        if status.in_flatpak {
+            group_sync.set_description(Some(
+                "Pacotes, ambiente do sistema, sysctl e serviços só funcionam na instalação .deb, fora do Flatpak.",
+            ));
+            group_sync.set_sensitive(false);
+        } else {
+            group_sync.set_description(Some(
+                "Nada é alterado sozinho. Cada botão pede confirmação e, quando precisa, a senha de administrador.",
+            ));
+            group_sync.set_sensitive(true);
+        }
+
+        pkg_row.set_subtitle(&package_subtitle(&status));
+        if !status.apt_available {
+            set_status_badge(&pkg_badge, "Sem apt", "badge-amber");
+        } else if status.packages_complete() {
+            set_status_badge(&pkg_badge, "Instalado", "badge-green");
+        } else {
+            set_status_badge(&pkg_badge, "Incompleto", "badge-amber");
+        }
+        pkg_btn.set_sensitive(status.apt_available && !status.packages_complete());
+
+        if status.shader_boost_applied {
+            set_status_badge(&shader_badge, "12 GB", "badge-green");
+        } else if status.glsl_cache_mb.is_some() || status.shader_cache_mb.is_some() {
+            set_status_badge(&shader_badge, "Parcial", "badge-amber");
+        } else {
+            set_status_badge(&shader_badge, "Padrão", "badge-subtle");
+        }
+        shader_btn.set_sensitive(!status.shader_boost_applied);
+
+        split_row.set_subtitle(&split_lock_subtitle(&status));
+        match status.split_lock_mitigate {
+            Some(0) => {
+                set_status_badge(&split_badge, "Desligada", "badge-amber");
+                split_toggle_btn.set_label("Religar");
+            }
+            Some(1) => {
+                set_status_badge(&split_badge, "Ativa", "badge-green");
+                split_toggle_btn.set_label("Desligar");
+            }
+            _ => {
+                set_status_badge(&split_badge, "Indisponível", "badge-subtle");
+                split_toggle_btn.set_label("Desligar");
+            }
+        }
+        split_toggle_btn.set_sensitive(status.split_lock_mitigate.is_some());
+        split_persist_btn.set_sensitive(
+            status.split_lock_mitigate.is_some()
+                && status.split_lock_mitigate != status.split_lock_persisted,
+        );
+
+        lact_installed.set(status.lact_installed);
+        if status.lact_installed {
+            set_status_badge(&lact_badge, "Instalado", "badge-green");
+            lact_btn.set_label("Abrir");
+            lact_btn.set_sensitive(true);
+        } else {
+            set_status_badge(&lact_badge, "Ausente", "badge-subtle");
+            lact_btn.set_label("Instalar");
+            lact_btn.set_sensitive(status.apt_available);
+        }
+
+        let mh_ok = status
+            .packages
+            .iter()
+            .any(|pkg| pkg.name == "mangohud" && pkg.installed)
+            || GamingAnalyzer::load_mangohud_config().is_installed;
+        set_status_badge(
+            &mh_badge,
+            if mh_ok { "Instalado" } else { "Ausente" },
+            if mh_ok { "badge-green" } else { "badge-subtle" },
+        );
+    });
+    sync();
+
+    let toast_pkg = toast_overlay.clone();
+    let sync_pkg = sync.clone();
+    let pkg_spinner_c = pkg_spinner.clone();
+    let buttons_pkg = action_buttons.clone();
+    pkg_btn_click.connect_clicked(move |_| {
+        let toast = toast_pkg.clone();
+        let sync = sync_pkg.clone();
+        let spinner = pkg_spinner_c.clone();
+        let buttons = buttons_pkg();
+        spawn_boost_action(
+            toast,
+            buttons,
+            spinner,
+            GamingBoost::install_gaming_packages,
+            move || sync(),
+        );
+    });
+
+    let toast_shader = toast_overlay.clone();
+    let sync_shader = sync.clone();
+    let shader_spinner_c = shader_spinner.clone();
+    let buttons_shader = action_buttons.clone();
+    shader_btn_click.connect_clicked(move |_| {
+        let toast = toast_shader.clone();
+        let sync = sync_shader.clone();
+        let spinner = shader_spinner_c.clone();
+        let buttons = buttons_shader();
+        spawn_boost_action(
+            toast,
+            buttons,
+            spinner,
+            GamingBoost::apply_shader_cache,
+            move || sync(),
+        );
+    });
+
+    let toast_split = toast_overlay.clone();
+    let sync_split = sync.clone();
+    let split_spinner_toggle = split_spinner.clone();
+    let buttons_split = action_buttons.clone();
+    split_toggle_click.connect_clicked(move |_| {
+        let Some(current) = GamingBoost::read().split_lock_mitigate else {
+            return;
+        };
+        let toast = toast_split.clone();
+        let sync = sync_split.clone();
+        let spinner = split_spinner_toggle.clone();
+        let buttons = buttons_split();
+        spawn_boost_action(
+            toast,
+            buttons,
+            spinner,
+            move || GamingBoost::set_split_lock_mitigate(current == 0),
+            move || sync(),
+        );
+    });
+
+    let toast_persist = toast_overlay.clone();
+    let sync_persist = sync.clone();
+    let split_spinner_persist = split_spinner.clone();
+    let buttons_persist = action_buttons.clone();
+    split_persist_click.connect_clicked(move |_| {
+        let Some(current) = GamingBoost::read().split_lock_mitigate else {
+            return;
+        };
+        let toast = toast_persist.clone();
+        let sync = sync_persist.clone();
+        let spinner = split_spinner_persist.clone();
+        let buttons = buttons_persist();
+        spawn_boost_action(
+            toast,
+            buttons,
+            spinner,
+            move || GamingBoost::persist_split_lock(current == 1),
+            move || sync(),
+        );
+    });
+
+    let toast_lact = toast_overlay.clone();
+    let sync_lact = sync.clone();
+    let lact_spinner_c = lact_spinner.clone();
+    let buttons_lact = action_buttons.clone();
+    lact_btn_click.connect_clicked(move |_| {
+        if lact_state.get() {
+            match GamingBoost::open_lact() {
+                Ok(msg) => toast_lact.add_toast(Toast::new(&msg)),
+                Err(err) => toast_lact.add_toast(Toast::new(&err)),
+            }
+            return;
+        }
+
+        let dialog = AlertDialog::builder()
+            .heading("Instalar o LACT")
+            .body("O Analise PC vai baixar o .deb amd64 mais recente do GitHub e instalá-lo com privilégios de administrador. Esse pacote não tem a assinatura verificada. O serviço lactd será ativado e poderá controlar ventoinha, energia e clocks da GPU.")
+            .default_response("cancel")
+            .close_response("cancel")
+            .build();
+        dialog.add_responses(&[("cancel", "_Cancelar"), ("install", "_Instalar")]);
+        dialog.set_response_appearance("install", ResponseAppearance::Destructive);
+
+        let toast = toast_lact.clone();
+        let sync = sync_lact.clone();
+        let spinner = lact_spinner_c.clone();
+        let parent = toast.clone();
+        let buttons_lact = buttons_lact.clone();
+        glib::spawn_future_local(async move {
+            let response = dialog.choose_future(Some(&parent)).await;
+            if response != "install" {
+                return;
+            }
+            spawn_boost_action(
+                toast,
+                buttons_lact(),
+                spinner,
+                GamingBoost::install_lact,
+                move || sync(),
+            );
+        });
+    });
+
+    group
+}
+
 fn build_gaming_page(toast_overlay: &ToastOverlay) -> PreferencesPage {
     let page = PreferencesPage::new();
+
+    let mh_badge = Label::new(Some("Ausente"));
+    mh_badge.set_valign(Align::Center);
+    page.add(&build_gaming_boost_group(toast_overlay, &mh_badge));
 
     let mut cpu_col = CpuCollector::new();
     let cpu_info = cpu_col.refresh();
@@ -3922,6 +4298,7 @@ fn build_gaming_page(toast_overlay: &ToastOverlay) -> PreferencesPage {
         }
     });
 
+    save_row.add_suffix(&mh_badge);
     save_row.add_suffix(&save_btn);
     mh_group.add(&save_row);
 

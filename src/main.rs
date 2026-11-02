@@ -170,6 +170,30 @@ fn run_cli_mode() {
     for st in &steam_items {
         println!("     • {} (AppID: {} | {:.2} GiB)", st.name, st.app_id, st.size_gib);
     }
+    let boost = core::gaming_boost::GamingBoost::read();
+    println!("   Desempenho para jogos:");
+    if boost.in_flatpak {
+        println!("     • Indisponível no Flatpak. Use a instalação .deb.");
+    } else {
+        println!(
+            "     • APT: {} | i386: {}",
+            if boost.apt_available { "disponível" } else { "ausente" },
+            if boost.i386_enabled { "ativa" } else { "ausente" }
+        );
+        for pkg in &boost.packages {
+            println!(
+                "     • {}: {}",
+                pkg.name,
+                if pkg.installed { "instalado" } else { "ausente" }
+            );
+        }
+        println!("     • Cache Mesa: {}", boost.shader_cache_label());
+        println!("     • Split lock: {}", boost.split_lock_label());
+        println!(
+            "     • LACT: {}",
+            if boost.lact_installed { "instalado" } else { "ausente" }
+        );
+    }
     println!();
 
     println!("⚙️  [Otimizações & Sistema]");

@@ -27,6 +27,11 @@
     <color type="primary" scheme_preference="dark">#1c71d8</color>
   </Branding>
   <releases>
+    <release version="0.2.0" date="2026-11-01">
+      <description>
+        <p>Painel Desempenho para Jogos, com pacote gamer, cache de shaders da Mesa, split lock e LACT.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-30">
       <description>
         <p>Versão inicial com interface adaptativa Libadwaita seguindo a GNOME HIG.</p>

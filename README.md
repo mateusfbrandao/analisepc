@@ -72,6 +72,7 @@ A barra lateral do aplicativo adota o padrão de **Sidebars com Cabeçalhos de S
 - **Estimativa de FPS em Jogos:** Projeção de taxa de quadros para títulos populares (*CS2*, *Overwatch 2*, *Valorant*, *Forza Horizon 5*, *Cyberpunk 2077*, *Red Dead Redemption 2*, *Ghost Recon Breakpoint*).
 - **Scanner de Biblioteca Steam:** Detecta jogos e camadas de compatibilidade Proton instalados localmente.
 - **Configurador de Overlay (`MangoHud`):** Aplica com 1 clique o perfil de monitoramento em `~/.config/MangoHud/MangoHud.conf`.
+- **Desempenho para Jogos:** Instala o pacote gamer (i386, GameMode, MangoHud, Gamescope, Mesa e Vulkan), amplia o cache de shaders da Mesa para 12 GB, liga ou desliga a penalidade de split lock sem editar o GRUB e instala ou abre o LACT. Cada ação é opcional e pede confirmação. No Flatpak o grupo fica desativado.
 
 #### 8. ⚙️ Otimizações, Limpeza de Disco e Vilões de Recursos
 - **Modos de Energia Nativos (HIG Radio Buttons):** Alternância instantânea entre **Alto Desempenho**, **Equilibrado** e **Economia de Energia**.
@@ -109,7 +110,7 @@ Baixe a versão mais recente do pacote `.deb` nas [Releases do GitHub](https://g
 
 ```bash
 # Instalação rápida via terminal:
-sudo apt install ./analisepc_0.1.0_amd64.deb
+sudo apt install ./analisepc_0.2.0_amd64.deb
 ```
 
 *O aplicativo será adicionado automaticamente ao menu de programas do sistema sob o nome **Analise PC**, com suporte nativo a atualizações de ícones e temas do GNOME.*
@@ -176,6 +177,7 @@ AnalisePC/
     │   ├── battery.rs                         # Telemetria da bateria e percentual de desgaste
     │   ├── diagnostics.rs                     # Avaliação de saúde (0-100), Throttling e logs do kernel
     │   ├── gaming.rs                          # Detector de gargalo, estimador de FPS e biblioteca Steam
+    │   ├── gaming_boost.rs                    # Pacote gamer, cache Mesa, split lock e LACT
     │   ├── exporter.rs                        # Gerador de laudos técnicos em HTML e JSON
     │   ├── optimizer.rs                       # Modos de energia, PRIME, Turbo Boost, limpeza e vilões
     │   └── stress.rs                          # Benchmarks de CPU, RAM, NVMe e Stress Test Térmico

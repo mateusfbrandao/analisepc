@@ -3,10 +3,14 @@ set -euo pipefail
 
 APP_NAME="analisepc"
 APP_ID="io.github.analisepc.AnalisePC"
-VERSION="0.1.0"
 ARCH="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION="$(awk -F '"' '/^version[[:space:]]*=/{print $2; exit}' "$ROOT_DIR/Cargo.toml")"
+if [ -z "$VERSION" ]; then
+    echo "Erro: não foi possível ler version em $ROOT_DIR/Cargo.toml" >&2
+    exit 1
+fi
 cd "$ROOT_DIR"
 
 echo "==> [1/4] Compilando binário de release com Cargo..."
